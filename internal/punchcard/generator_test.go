@@ -15,16 +15,19 @@ func TestNewGenerator(t *testing.T) {
 }
 
 func TestGenerate(t *testing.T) {
+	// Expected image width is CardWidth * CardHeight (26 * 8 = 208)
+	expectedWidth := CardWidth * CardHeight
+
 	tests := []struct {
 		name          string
 		matrixHeight  int
 		matrixWidth   int
 		expectedCards int
 	}{
-		{"single card", CardHeight, CardWidth, 1},
-		{"two cards", CardHeight * 2, CardWidth, 2},
-		{"partial card", CardHeight + 10, CardWidth, 2},
-		{"three full cards", CardHeight * 3, CardWidth, 3},
+		{"single card (one row)", 1, expectedWidth, 1},
+		{"two cards (two rows)", 2, expectedWidth, 2},
+		{"ten cards (ten rows)", 10, expectedWidth, 10},
+		{"hundred cards (hundred rows)", 100, expectedWidth, 100},
 	}
 
 	for _, tt := range tests {
@@ -70,8 +73,9 @@ func TestGenerateEmptyMatrix(t *testing.T) {
 func TestGenerateInvalidWidth(t *testing.T) {
 	generator := NewGenerator()
 
-	// Create matrix with wrong width
-	matrix := createTestMatrix(CardHeight, CardWidth+1)
+	// Create matrix with wrong width (should be CardWidth * CardHeight = 208)
+	wrongWidth := CardWidth * CardHeight + 1
+	matrix := createTestMatrix(1, wrongWidth)
 
 	_, err := generator.Generate(matrix)
 	if err == nil {
@@ -363,8 +367,9 @@ func TestCardGetCardInfo(t *testing.T) {
 }
 
 func TestGenerateMetadata(t *testing.T) {
-	// Create test cards
-	matrix := createTestMatrix(CardHeight*3, CardWidth)
+	// Create test cards (3 rows, each becomes one card)
+	expectedWidth := CardWidth * CardHeight
+	matrix := createTestMatrix(3, expectedWidth)
 	generator := NewGenerator()
 	cards, err := generator.Generate(matrix)
 	if err != nil {
@@ -415,7 +420,8 @@ func createTestMatrix(height, width int) [][]int {
 // Benchmark tests
 
 func BenchmarkGenerate(b *testing.B) {
-	matrix := createTestMatrix(CardHeight*10, CardWidth)
+	expectedWidth := CardWidth * CardHeight
+	matrix := createTestMatrix(10, expectedWidth) // 10 rows = 10 cards
 	generator := NewGenerator()
 
 	b.ResetTimer()

@@ -97,8 +97,14 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get title parameter (optional)
+	title := r.FormValue("title")
+
 	// Process the image
-	processor := image.NewProcessor(punchcard.CardWidth, 0, image.ColorMode(colorMode))
+	// Image width should be CardWidth * CardHeight (26 * 8 = 208)
+	// Height is auto-calculated from aspect ratio
+	processorWidth := punchcard.CardWidth * punchcard.CardHeight
+	processor := image.NewProcessor(processorWidth, 0, image.ColorMode(colorMode))
 
 	// Read the file into memory
 	fileBytes, err := io.ReadAll(file)
@@ -142,6 +148,7 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	if format == "svg" {
 		exporter := punchcard.NewSVGExporter()
+		exporter.SetTitle(title, len(cards)) // Set title and total card count
 		err = exporter.ExportCards(cards, &output)
 		contentType = "image/svg+xml"
 		filename = "punchcards.svg"
@@ -149,6 +156,7 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 		// For PDF, we'll export as SVG and let the client handle conversion
 		// Or we can use a simple PDF library
 		exporter := punchcard.NewSVGExporter()
+		exporter.SetTitle(title, len(cards)) // Set title and total card count
 		err = exporter.ExportCards(cards, &output)
 		contentType = "application/pdf"
 		filename = "punchcards.pdf"
@@ -206,8 +214,14 @@ func (h *Handler) PreviewHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get title parameter (optional)
+	title := r.FormValue("title")
+
 	// Process the image
-	processor := image.NewProcessor(punchcard.CardWidth, 0, image.ColorMode(colorMode))
+	// Image width should be CardWidth * CardHeight (26 * 8 = 208)
+	// Height is auto-calculated from aspect ratio
+	processorWidth := punchcard.CardWidth * punchcard.CardHeight
+	processor := image.NewProcessor(processorWidth, 0, image.ColorMode(colorMode))
 
 	fileBytes, err := io.ReadAll(file)
 	if err != nil {
@@ -244,6 +258,7 @@ func (h *Handler) PreviewHandler(w http.ResponseWriter, r *http.Request) {
 	// Export as SVG for preview
 	var output bytes.Buffer
 	exporter := punchcard.NewSVGExporter()
+	exporter.SetTitle(title, len(cards)) // Set title and total card count (not preview count)
 	err = exporter.ExportCards(previewCards, &output)
 	if err != nil {
 		http.Error(w, "Failed to generate preview", http.StatusInternalServerError)
@@ -288,7 +303,10 @@ func (h *Handler) InfoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Process the image
-	processor := image.NewProcessor(punchcard.CardWidth, 0, image.ColorMode(colorMode))
+	// Image width should be CardWidth * CardHeight (26 * 8 = 208)
+	// Height is auto-calculated from aspect ratio
+	processorWidth := punchcard.CardWidth * punchcard.CardHeight
+	processor := image.NewProcessor(processorWidth, 0, image.ColorMode(colorMode))
 
 	fileBytes, err := io.ReadAll(file)
 	if err != nil {
