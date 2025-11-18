@@ -92,8 +92,8 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 	if format == "" {
 		format = "svg" // Default to SVG
 	}
-	if format != "svg" && format != "pdf" {
-		http.Error(w, "Invalid format (must be 'svg' or 'pdf')", http.StatusBadRequest)
+	if format != "svg" && format != "pdf" && format != "txt" {
+		http.Error(w, "Invalid format (must be 'svg', 'pdf', or 'txt')", http.StatusBadRequest)
 		return
 	}
 
@@ -152,6 +152,12 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 		err = exporter.ExportCards(cards, &output)
 		contentType = "image/svg+xml"
 		filename = "punchcards.svg"
+	} else if format == "txt" {
+		exporter := punchcard.NewTextExporter()
+		exporter.SetTitle(title, len(cards)) // Set title and total card count
+		err = exporter.ExportCards(cards, &output)
+		contentType = "text/plain; charset=utf-8"
+		filename = "punchcards.txt"
 	} else {
 		// For PDF, we'll export as SVG and let the client handle conversion
 		// Or we can use a simple PDF library
@@ -347,6 +353,216 @@ func (h *Handler) InfoHandler(w http.ResponseWriter, r *http.Request) {
 		"totalRows":       metadata.TotalRows,
 		"averageDensity":  fmt.Sprintf("%.1f%%", metadata.AverageDensity),
 		"holesPerCard":    metadata.HolesPerCard,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// UploadTextHandler handles uploading and processing text format punchcard files
+func (h *Handler) UploadTextHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse multipart form (max 10MB)
+	err := r.ParseMultipartForm(10 << 20)
+	if err != nil {
+		http.Error(w, "Failed to parse form", http.StatusBadRequest)
+		return
+	}
+
+	// Get the uploaded file
+	file, header, err := r.FormFile("textfile")
+	if err != nil {
+		http.Error(w, "Failed to get uploaded file", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	log.Printf("Received text file: %s (%d bytes)", header.Filename, header.Size)
+
+	// Get format parameter for export (svg, pdf, or txt)
+	format := r.FormValue("format")
+	if format == "" {
+		format = "svg" // Default to SVG
+	}
+	if format != "svg" && format != "pdf" && format != "txt" {
+		http.Error(w, "Invalid format (must be 'svg', 'pdf', or 'txt')", http.StatusBadRequest)
+		return
+	}
+
+	// Read the file content
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		http.Error(w, "Failed to read file", http.StatusInternalServerError)
+		return
+	}
+
+	// Parse the text format
+	parser := punchcard.NewTextParser()
+	result, err := parser.Parse(string(fileBytes))
+	if err != nil {
+		log.Printf("Error parsing text file: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to parse text file: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("Parsed %d cards from text file", len(result.Cards))
+
+	// Export based on format
+	var output bytes.Buffer
+	var contentType string
+	var filename string
+
+	if format == "svg" {
+		exporter := punchcard.NewSVGExporter()
+		exporter.SetTitle(result.Title, len(result.Cards))
+		err = exporter.ExportCards(result.Cards, &output)
+		contentType = "image/svg+xml"
+		filename = "punchcards.svg"
+	} else if format == "txt" {
+		exporter := punchcard.NewTextExporter()
+		exporter.SetTitle(result.Title, len(result.Cards))
+		err = exporter.ExportCards(result.Cards, &output)
+		contentType = "text/plain; charset=utf-8"
+		filename = "punchcards.txt"
+	} else {
+		// For PDF
+		exporter := punchcard.NewSVGExporter()
+		exporter.SetTitle(result.Title, len(result.Cards))
+		err = exporter.ExportCards(result.Cards, &output)
+		contentType = "application/pdf"
+		filename = "punchcards.pdf"
+	}
+
+	if err != nil {
+		log.Printf("Error exporting cards: %v", err)
+		http.Error(w, "Failed to export punchcards", http.StatusInternalServerError)
+		return
+	}
+
+	// Set headers for download
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+	w.Header().Set("Content-Length", strconv.Itoa(output.Len()))
+
+	// Write output
+	_, err = w.Write(output.Bytes())
+	if err != nil {
+		log.Printf("Error writing response: %v", err)
+	}
+}
+
+// PreviewTextHandler generates a preview from an uploaded text file
+func (h *Handler) PreviewTextHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse multipart form
+	err := r.ParseMultipartForm(10 << 20)
+	if err != nil {
+		http.Error(w, "Failed to parse form", http.StatusBadRequest)
+		return
+	}
+
+	// Get the uploaded file
+	file, _, err := r.FormFile("textfile")
+	if err != nil {
+		http.Error(w, "Failed to get uploaded file", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	// Read the file content
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		http.Error(w, "Failed to read file", http.StatusInternalServerError)
+		return
+	}
+
+	// Parse the text format
+	parser := punchcard.NewTextParser()
+	result, err := parser.Parse(string(fileBytes))
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to parse text file: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	// Generate preview (first 3 cards only)
+	previewCards := result.Cards
+	if len(previewCards) > 3 {
+		previewCards = result.Cards[:3]
+	}
+
+	// Export as SVG for preview
+	var output bytes.Buffer
+	exporter := punchcard.NewSVGExporter()
+	exporter.SetTitle(result.Title, len(result.Cards))
+	err = exporter.ExportCards(previewCards, &output)
+	if err != nil {
+		http.Error(w, "Failed to generate preview", http.StatusInternalServerError)
+		return
+	}
+
+	// Return SVG directly for inline display
+	w.Header().Set("Content-Type", "image/svg+xml")
+	w.Write(output.Bytes())
+}
+
+// InfoTextHandler returns information about an uploaded text file
+func (h *Handler) InfoTextHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse multipart form
+	err := r.ParseMultipartForm(10 << 20)
+	if err != nil {
+		http.Error(w, "Failed to parse form", http.StatusBadRequest)
+		return
+	}
+
+	// Get the uploaded file
+	file, header, err := r.FormFile("textfile")
+	if err != nil {
+		http.Error(w, "Failed to get uploaded file", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	// Read the file content
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		http.Error(w, "Failed to read file", http.StatusInternalServerError)
+		return
+	}
+
+	// Parse the text format
+	parser := punchcard.NewTextParser()
+	result, err := parser.Parse(string(fileBytes))
+	if err != nil {
+		http.Error(w, "Failed to parse text file", http.StatusBadRequest)
+		return
+	}
+
+	// Generate metadata
+	metadata := punchcard.GenerateMetadata(result.Cards)
+
+	// Create response
+	response := map[string]interface{}{
+		"filename":       header.Filename,
+		"fileSize":       header.Size,
+		"title":          result.Title,
+		"totalCards":     metadata.TotalCards,
+		"cardDimensions": fmt.Sprintf("%dx%d", metadata.CardWidth, metadata.CardHeight),
+		"totalRows":      metadata.TotalRows,
+		"averageDensity": fmt.Sprintf("%.1f%%", metadata.AverageDensity),
+		"holesPerCard":   metadata.HolesPerCard,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

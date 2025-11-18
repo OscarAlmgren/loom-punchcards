@@ -44,6 +44,9 @@ func main() {
 	mux.HandleFunc("/upload", h.UploadHandler)
 	mux.HandleFunc("/preview", h.PreviewHandler)
 	mux.HandleFunc("/info", h.InfoHandler)
+	mux.HandleFunc("/upload-text", h.UploadTextHandler)
+	mux.HandleFunc("/preview-text", h.PreviewTextHandler)
+	mux.HandleFunc("/info-text", h.InfoTextHandler)
 	mux.HandleFunc("/health", h.HealthHandler)
 
 	// Start server
