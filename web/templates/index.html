@@ -41,6 +41,12 @@
                     </div>
 
                     <div class="form-group">
+                        <label for="title">Pattern Title:</label>
+                        <input type="text" id="title" name="title" placeholder="Enter pattern name" maxlength="50">
+                        <small>Optional title to display on each card (e.g., "Roses_Pattern")</small>
+                    </div>
+
+                    <div class="form-group">
                         <label for="colorMode">Color Mode:</label>
                         <select id="colorMode" name="colorMode">
                             <option value="2" selected>2-Color (Binary: Black/White)</option>
@@ -64,7 +70,7 @@
                                 hx-post="/preview"
                                 hx-target="#preview"
                                 hx-encoding="multipart/form-data"
-                                hx-include="[name='image'],[name='colorMode']"
+                                hx-include="[name='image'],[name='colorMode'],[name='title']"
                                 hx-indicator="#loading">
                             Preview
                         </button>
@@ -74,7 +80,7 @@
                                 hx-post="/info"
                                 hx-target="#info"
                                 hx-encoding="multipart/form-data"
-                                hx-include="[name='image'],[name='colorMode']"
+                                hx-include="[name='image'],[name='colorMode'],[name='title']"
                                 hx-indicator="#loading">
                             Get Info
                         </button>
@@ -105,9 +111,9 @@
         <footer>
             <h3>Technical Specifications</h3>
             <ul>
-                <li><strong>Card Size:</strong> 8 columns × 26 rows (208 possible holes per card)</li>
+                <li><strong>Card Size:</strong> 26 columns × 8 rows (208 possible holes per card)</li>
                 <li><strong>Hole Pattern:</strong> Binary (1 = hole punched, 0 = no hole)</li>
-                <li><strong>Card Sequence:</strong> Each card represents one row of the weave pattern</li>
+                <li><strong>Card Sequence:</strong> Each card represents one row of the image (one card per row)</li>
                 <li><strong>Dithering:</strong> Floyd-Steinberg algorithm for optimal grayscale representation</li>
                 <li><strong>Material:</strong> Optimized for silk weaving with fine granularity</li>
             </ul>

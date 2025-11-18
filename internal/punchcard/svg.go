@@ -22,6 +22,8 @@ type SVGExporter struct {
 	HoleRadius    float64 // Radius of holes in mm
 	HoleSpacing   float64 // Spacing between holes in mm
 	Scale         float64 // Scale factor for the entire card
+	Title         string  // Optional title to display on cards
+	TotalCards    int     // Total number of cards in the series
 }
 
 // NewSVGExporter creates a new SVG exporter with default settings
@@ -32,7 +34,15 @@ func NewSVGExporter() *SVGExporter {
 		HoleRadius:  HoleRadius,
 		HoleSpacing: HoleSpacing,
 		Scale:       1.0,
+		Title:       "",
+		TotalCards:  0,
 	}
+}
+
+// SetTitle sets the title and total card count for display on cards
+func (e *SVGExporter) SetTitle(title string, totalCards int) {
+	e.Title = title
+	e.TotalCards = totalCards
 }
 
 // ExportCard exports a single card to SVG format
@@ -66,11 +76,20 @@ func (e *SVGExporter) ExportCard(card *Card, w io.Writer) error {
 	fmt.Fprintf(w, `  <rect width="100%%" height="100%%" fill="white"/>`)
 	fmt.Fprintf(w, "\n\n")
 
-	// Card number at top
+	// Card number at top (with optional title)
 	if e.ShowNumbers {
 		fmt.Fprintf(w, `  <text x="%.2f" y="%.2f" font-family="monospace" font-size="%.2f" text-anchor="middle" fill="black">`,
 			widthPx/2, TextHeight*MMToPixel*0.8, TextHeight*MMToPixel*0.6)
-		fmt.Fprintf(w, "Card #%d", card.Number)
+
+		// Display title with card number in format "Title_name #1/156"
+		if e.Title != "" && e.TotalCards > 0 {
+			fmt.Fprintf(w, "%s #%d/%d", e.Title, card.Number, e.TotalCards)
+		} else if e.TotalCards > 0 {
+			fmt.Fprintf(w, "Card #%d/%d", card.Number, e.TotalCards)
+		} else {
+			fmt.Fprintf(w, "Card #%d", card.Number)
+		}
+
 		fmt.Fprintf(w, "</text>\n")
 	}
 
@@ -203,11 +222,20 @@ func (e *SVGExporter) ExportCards(cards []*Card, w io.Writer) error {
 
 // renderCardContent renders the content of a card (without SVG wrapper)
 func (e *SVGExporter) renderCardContent(w io.Writer, card *Card, widthPx, heightPx float64) {
-	// Card number at top
+	// Card number at top (with optional title)
 	if e.ShowNumbers {
 		fmt.Fprintf(w, `    <text x="%.2f" y="%.2f" font-family="monospace" font-size="%.2f" text-anchor="middle" fill="black">`,
 			widthPx/2, TextHeight*MMToPixel*0.8, TextHeight*MMToPixel*0.6)
-		fmt.Fprintf(w, "Card #%d", card.Number)
+
+		// Display title with card number in format "Title_name #1/156"
+		if e.Title != "" && e.TotalCards > 0 {
+			fmt.Fprintf(w, "%s #%d/%d", e.Title, card.Number, e.TotalCards)
+		} else if e.TotalCards > 0 {
+			fmt.Fprintf(w, "Card #%d/%d", card.Number, e.TotalCards)
+		} else {
+			fmt.Fprintf(w, "Card #%d", card.Number)
+		}
+
 		fmt.Fprintf(w, "</text>\n")
 	}
 
