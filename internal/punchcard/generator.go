@@ -6,12 +6,13 @@ import (
 
 const (
 	// CardWidth represents the number of columns in a standard Jacquard punchcard
-	// Based on simplified home loom specifications (8 needles)
-	CardWidth = 8
+	// Horizontal orientation: 26 columns per card
+	CardWidth = 26
 
 	// CardHeight represents the number of rows in a single punchcard
-	// Each card represents one row of weave pattern
-	CardHeight = 26
+	// Horizontal orientation: 8 rows per card
+	// Each card represents one row of the source image (208 pixels = 26*8)
+	CardHeight = 8
 )
 
 // Card represents a single Jacquard punchcard
@@ -35,7 +36,8 @@ func NewGenerator() *Generator {
 }
 
 // Generate converts a binary matrix (from processed image) into a sequence of punchcards
-// Each card represents CardHeight rows of the pattern
+// Each card represents one row of the image, arranged in a CardWidth x CardHeight grid
+// The image should be resized to (CardWidth * CardHeight) pixels wide
 func (g *Generator) Generate(matrix [][]int) ([]*Card, error) {
 	if len(matrix) == 0 {
 		return nil, fmt.Errorf("empty matrix provided")
@@ -44,36 +46,33 @@ func (g *Generator) Generate(matrix [][]int) ([]*Card, error) {
 	imageWidth := len(matrix[0])
 	imageHeight := len(matrix)
 
-	// Validate that the image width matches the card width
-	// If not, we need to resize or crop
-	if imageWidth != CardWidth {
-		return nil, fmt.Errorf("image width (%d) does not match card width (%d)", imageWidth, CardWidth)
+	// Expected width is CardWidth * CardHeight (26 * 8 = 208)
+	expectedWidth := CardWidth * CardHeight
+	if imageWidth != expectedWidth {
+		return nil, fmt.Errorf("image width (%d) does not match expected width (%d = %d x %d)",
+			imageWidth, expectedWidth, CardWidth, CardHeight)
 	}
 
-	// Calculate the number of cards needed
-	numCards := (imageHeight + CardHeight - 1) / CardHeight // Ceiling division
-
+	// Each row of the image becomes one card
+	numCards := imageHeight
 	cards := make([]*Card, numCards)
 
-	// Split the matrix into individual cards
+	// Convert each row into a card
 	for cardNum := 0; cardNum < numCards; cardNum++ {
-		startRow := cardNum * CardHeight
-		endRow := startRow + CardHeight
-		if endRow > imageHeight {
-			endRow = imageHeight
-		}
+		// Get the source row (208 pixels)
+		sourceRow := matrix[cardNum]
 
-		// Create the card matrix
+		// Create the card matrix (26 columns x 8 rows)
 		cardMatrix := make([][]int, CardHeight)
-		for i := 0; i < CardHeight; i++ {
-			cardMatrix[i] = make([]int, CardWidth)
 
-			// Copy data from the source matrix if available
-			sourceRow := startRow + i
-			if sourceRow < imageHeight {
-				copy(cardMatrix[i], matrix[sourceRow])
+		// Reshape the 208-pixel row into a 26x8 grid
+		// We fill the grid row by row (left to right, top to bottom)
+		for row := 0; row < CardHeight; row++ {
+			cardMatrix[row] = make([]int, CardWidth)
+			for col := 0; col < CardWidth; col++ {
+				pixelIndex := row*CardWidth + col
+				cardMatrix[row][col] = sourceRow[pixelIndex]
 			}
-			// If we're past the end of the image, leave as zeros (no holes)
 		}
 
 		cards[cardNum] = &Card{

@@ -98,7 +98,10 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Process the image
-	processor := image.NewProcessor(punchcard.CardWidth, 0, image.ColorMode(colorMode))
+	// Image width should be CardWidth * CardHeight (26 * 8 = 208)
+	// Height is auto-calculated from aspect ratio
+	processorWidth := punchcard.CardWidth * punchcard.CardHeight
+	processor := image.NewProcessor(processorWidth, 0, image.ColorMode(colorMode))
 
 	// Read the file into memory
 	fileBytes, err := io.ReadAll(file)
@@ -207,7 +210,10 @@ func (h *Handler) PreviewHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Process the image
-	processor := image.NewProcessor(punchcard.CardWidth, 0, image.ColorMode(colorMode))
+	// Image width should be CardWidth * CardHeight (26 * 8 = 208)
+	// Height is auto-calculated from aspect ratio
+	processorWidth := punchcard.CardWidth * punchcard.CardHeight
+	processor := image.NewProcessor(processorWidth, 0, image.ColorMode(colorMode))
 
 	fileBytes, err := io.ReadAll(file)
 	if err != nil {
@@ -288,7 +294,10 @@ func (h *Handler) InfoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Process the image
-	processor := image.NewProcessor(punchcard.CardWidth, 0, image.ColorMode(colorMode))
+	// Image width should be CardWidth * CardHeight (26 * 8 = 208)
+	// Height is auto-calculated from aspect ratio
+	processorWidth := punchcard.CardWidth * punchcard.CardHeight
+	processor := image.NewProcessor(processorWidth, 0, image.ColorMode(colorMode))
 
 	fileBytes, err := io.ReadAll(file)
 	if err != nil {
