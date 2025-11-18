@@ -100,10 +100,22 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 	// Get title parameter (optional)
 	title := r.FormValue("title")
 
+	// Get card type parameter
+	cardTypeStr := r.FormValue("cardType")
+	if cardTypeStr == "" {
+		cardTypeStr = "26x8" // Default to 26x8
+	}
+	if err := punchcard.ValidateCardType(cardTypeStr); err != nil {
+		http.Error(w, fmt.Sprintf("Invalid card type: %v", err), http.StatusBadRequest)
+		return
+	}
+	cardType := punchcard.CardType(cardTypeStr)
+	dims := punchcard.GetCardDimensions(cardType)
+
 	// Process the image
-	// Image width should be CardWidth * CardHeight (26 * 8 = 208)
+	// Image width should be Width * Height (e.g., 26 * 8 = 208 or 50 * 12 = 600)
 	// Height is auto-calculated from aspect ratio
-	processorWidth := punchcard.CardWidth * punchcard.CardHeight
+	processorWidth := dims.Width * dims.Height
 	processor := image.NewProcessor(processorWidth, 0, image.ColorMode(colorMode))
 
 	// Read the file into memory
@@ -130,8 +142,8 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Processed image to %dx%d matrix", len(matrix[0]), len(matrix))
 
-	// Generate punchcards
-	generator := punchcard.NewGenerator()
+	// Generate punchcards with the specified card type
+	generator := punchcard.NewGeneratorWithType(cardType)
 	cards, err := generator.Generate(matrix)
 	if err != nil {
 		log.Printf("Error generating punchcards: %v", err)
@@ -223,10 +235,22 @@ func (h *Handler) PreviewHandler(w http.ResponseWriter, r *http.Request) {
 	// Get title parameter (optional)
 	title := r.FormValue("title")
 
+	// Get card type parameter
+	cardTypeStr := r.FormValue("cardType")
+	if cardTypeStr == "" {
+		cardTypeStr = "26x8" // Default to 26x8
+	}
+	if err := punchcard.ValidateCardType(cardTypeStr); err != nil {
+		http.Error(w, fmt.Sprintf("Invalid card type: %v", err), http.StatusBadRequest)
+		return
+	}
+	cardType := punchcard.CardType(cardTypeStr)
+	dims := punchcard.GetCardDimensions(cardType)
+
 	// Process the image
-	// Image width should be CardWidth * CardHeight (26 * 8 = 208)
+	// Image width should be Width * Height (e.g., 26 * 8 = 208 or 50 * 12 = 600)
 	// Height is auto-calculated from aspect ratio
-	processorWidth := punchcard.CardWidth * punchcard.CardHeight
+	processorWidth := dims.Width * dims.Height
 	processor := image.NewProcessor(processorWidth, 0, image.ColorMode(colorMode))
 
 	fileBytes, err := io.ReadAll(file)
@@ -247,8 +271,8 @@ func (h *Handler) PreviewHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate punchcards
-	generator := punchcard.NewGenerator()
+	// Generate punchcards with the specified card type
+	generator := punchcard.NewGeneratorWithType(cardType)
 	cards, err := generator.Generate(matrix)
 	if err != nil {
 		http.Error(w, "Failed to generate punchcards", http.StatusInternalServerError)
@@ -308,10 +332,21 @@ func (h *Handler) InfoHandler(w http.ResponseWriter, r *http.Request) {
 		colorMode = 2
 	}
 
+	// Get card type parameter
+	cardTypeStr := r.FormValue("cardType")
+	if cardTypeStr == "" {
+		cardTypeStr = "26x8" // Default to 26x8
+	}
+	if err := punchcard.ValidateCardType(cardTypeStr); err != nil {
+		cardTypeStr = "26x8" // Fallback to default if invalid
+	}
+	cardType := punchcard.CardType(cardTypeStr)
+	dims := punchcard.GetCardDimensions(cardType)
+
 	// Process the image
-	// Image width should be CardWidth * CardHeight (26 * 8 = 208)
+	// Image width should be Width * Height (e.g., 26 * 8 = 208 or 50 * 12 = 600)
 	// Height is auto-calculated from aspect ratio
-	processorWidth := punchcard.CardWidth * punchcard.CardHeight
+	processorWidth := dims.Width * dims.Height
 	processor := image.NewProcessor(processorWidth, 0, image.ColorMode(colorMode))
 
 	fileBytes, err := io.ReadAll(file)
@@ -332,8 +367,8 @@ func (h *Handler) InfoHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate punchcards
-	generator := punchcard.NewGenerator()
+	// Generate punchcards with the specified card type
+	generator := punchcard.NewGeneratorWithType(cardType)
 	cards, err := generator.Generate(matrix)
 	if err != nil {
 		http.Error(w, "Failed to generate punchcards", http.StatusInternalServerError)
