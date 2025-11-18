@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jacquard Loom Punchcard Generator</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🧵 Jacquard Loom Punchcard Generator</h1>
+            <p class="subtitle">Convert images to historical weaving punchcards for silk looms</p>
+        </header>
+
+        <main>
+            <section class="info-box">
+                <h2>About Jacquard Loom Punchcards</h2>
+                <p>
+                    The Jacquard loom, invented by Joseph Marie Jacquard in 1801, revolutionized textile weaving
+                    by using punched cards to control the pattern. Each card contains a matrix of holes (8×26 in
+                    this simplified version) where each hole represents whether a warp thread is raised or lowered
+                    during weaving.
+                </p>
+                <p>
+                    This tool converts your images into a series of punchcards suitable for Jacquard weaving,
+                    particularly for fine silk materials. The dithering algorithm creates grayscale variations
+                    using different hole densities, similar to early pixel art techniques.
+                </p>
+            </section>
+
+            <section class="upload-section">
+                <h2>Upload Your Image</h2>
+
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="image">Select Image:</label>
+                        <input type="file" id="image" name="image" accept="image/png,image/jpeg,image/jpg" required>
+                        <small>Supported formats: PNG, JPEG (max 10MB)</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="colorMode">Color Mode:</label>
+                        <select id="colorMode" name="colorMode">
+                            <option value="2" selected>2-Color (Binary: Black/White)</option>
+                            <option value="4">4-Color (4 Grayscale Levels)</option>
+                            <option value="8">8-Color (8 Grayscale Levels)</option>
+                        </select>
+                        <small>Higher color modes use dithering to create more visual depth</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="format">Export Format:</label>
+                        <select id="format" name="format">
+                            <option value="svg" selected>SVG (Scalable Vector Graphics)</option>
+                            <option value="pdf">PDF (Printable Document)</option>
+                        </select>
+                    </div>
+
+                    <div class="button-group">
+                        <button type="button"
+                                class="btn btn-secondary"
+                                hx-post="/preview"
+                                hx-target="#preview"
+                                hx-encoding="multipart/form-data"
+                                hx-include="[name='image'],[name='colorMode']"
+                                hx-indicator="#loading">
+                            Preview
+                        </button>
+
+                        <button type="button"
+                                class="btn btn-secondary"
+                                hx-post="/info"
+                                hx-target="#info"
+                                hx-encoding="multipart/form-data"
+                                hx-include="[name='image'],[name='colorMode']"
+                                hx-indicator="#loading">
+                            Get Info
+                        </button>
+
+                        <button type="button"
+                                class="btn btn-primary"
+                                onclick="downloadPunchcards()">
+                            Generate & Download
+                        </button>
+                    </div>
+
+                    <div id="loading" class="htmx-indicator">
+                        <div class="spinner"></div>
+                        <p>Processing...</p>
+                    </div>
+                </form>
+            </section>
+
+            <section id="info" class="info-section">
+                <!-- Info will be loaded here via HTMX -->
+            </section>
+
+            <section id="preview" class="preview-section">
+                <!-- Preview will be loaded here via HTMX -->
+            </section>
+        </main>
+
+        <footer>
+            <h3>Technical Specifications</h3>
+            <ul>
+                <li><strong>Card Size:</strong> 8 columns × 26 rows (208 possible holes per card)</li>
+                <li><strong>Hole Pattern:</strong> Binary (1 = hole punched, 0 = no hole)</li>
+                <li><strong>Card Sequence:</strong> Each card represents one row of the weave pattern</li>
+                <li><strong>Dithering:</strong> Floyd-Steinberg algorithm for optimal grayscale representation</li>
+                <li><strong>Material:</strong> Optimized for silk weaving with fine granularity</li>
+            </ul>
+
+            <div class="historical-note">
+                <h4>Historical Context</h4>
+                <p>
+                    Jacquard's invention was a crucial precursor to modern computing. The punched card system
+                    inspired Charles Babbage's Analytical Engine and later became the primary input method for
+                    early computers. Some Jacquard patterns required over 24,000 cards, each with more than
+                    1,000 hole positions!
+                </p>
+            </div>
+
+            <p class="copyright">
+                Created for historical textile enthusiasts and weavers |
+                Open Source Project |
+                <a href="https://github.com/oscaralmgren/loom-punchcards">View on GitHub</a>
+            </p>
+        </footer>
+    </div>
+
+    <script>
+        // Handle file download
+        function downloadPunchcards() {
+            const form = document.getElementById('uploadForm');
+            const formData = new FormData(form);
+
+            const loading = document.getElementById('loading');
+            loading.classList.add('htmx-request');
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Upload failed: ' + response.statusText);
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                const format = document.getElementById('format').value;
+                const filename = 'punchcards.' + format;
+
+                // Create download link
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+                loading.classList.remove('htmx-request');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error generating punchcards: ' + error.message);
+                loading.classList.remove('htmx-request');
+            });
+        }
+
+        // Format JSON info display
+        document.body.addEventListener('htmx:afterSwap', function(event) {
+            if (event.detail.target.id === 'info') {
+                try {
+                    const data = JSON.parse(event.detail.target.textContent);
+                    event.detail.target.innerHTML = formatInfo(data);
+                } catch (e) {
+                    // Not JSON, leave as is
+                }
+            }
+        });
+
+        function formatInfo(data) {
+            return `
+                <div class="info-display">
+                    <h3>Punchcard Information</h3>
+                    <dl>
+                        <dt>Filename:</dt>
+                        <dd>${data.filename}</dd>
+
+                        <dt>File Size:</dt>
+                        <dd>${formatBytes(data.fileSize)}</dd>
+
+                        <dt>Color Mode:</dt>
+                        <dd>${data.colorMode}</dd>
+
+                        <dt>Total Cards:</dt>
+                        <dd>${data.totalCards}</dd>
+
+                        <dt>Card Dimensions:</dt>
+                        <dd>${data.cardDimensions}</dd>
+
+                        <dt>Total Pattern Rows:</dt>
+                        <dd>${data.totalRows}</dd>
+
+                        <dt>Average Hole Density:</dt>
+                        <dd>${data.averageDensity}</dd>
+                    </dl>
+
+                    ${data.totalCards > 1 ? `
+                        <details>
+                            <summary>Holes per card (${data.totalCards} cards)</summary>
+                            <div class="card-stats">
+                                ${data.holesPerCard.map((holes, i) =>
+                                    `<span>Card ${i+1}: ${holes} holes</span>`
+                                ).join('')}
+                            </div>
+                        </details>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function formatBytes(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+    </script>
+</body>
+</html>
