@@ -4,6 +4,44 @@ import (
 	"fmt"
 )
 
+// CardType represents different loom card specifications
+type CardType string
+
+const (
+	// CardType26x8 is the standard small card (26 columns × 8 rows = 208 holes)
+	CardType26x8 CardType = "26x8"
+
+	// CardType50x12 is a larger card for more detailed patterns (50 columns × 12 rows = 600 holes)
+	CardType50x12 CardType = "50x12"
+)
+
+// CardDimensions holds the width and height for a card type
+type CardDimensions struct {
+	Width  int
+	Height int
+}
+
+// GetCardDimensions returns the dimensions for a given card type
+func GetCardDimensions(cardType CardType) CardDimensions {
+	switch cardType {
+	case CardType50x12:
+		return CardDimensions{Width: 50, Height: 12}
+	case CardType26x8:
+		fallthrough
+	default:
+		return CardDimensions{Width: 26, Height: 8}
+	}
+}
+
+// ValidateCardType checks if the card type is valid
+func ValidateCardType(cardType string) error {
+	if cardType != string(CardType26x8) && cardType != string(CardType50x12) {
+		return fmt.Errorf("invalid card type: %s (must be '26x8' or '50x12')", cardType)
+	}
+	return nil
+}
+
+// Legacy constants for backward compatibility
 const (
 	// CardWidth represents the number of columns in a standard Jacquard punchcard
 	// Horizontal orientation: 26 columns per card
@@ -25,19 +63,29 @@ type Card struct {
 
 // Generator creates punchcards from binary image data
 type Generator struct {
-	CardsPerRow int // How many cards wide the pattern is (usually 1 for standard looms)
+	CardsPerRow int            // How many cards wide the pattern is (usually 1 for standard looms)
+	Dimensions  CardDimensions // Card dimensions (width and height)
 }
 
-// NewGenerator creates a new punchcard generator
+// NewGenerator creates a new punchcard generator with default 26x8 card type
 func NewGenerator() *Generator {
 	return &Generator{
 		CardsPerRow: 1,
+		Dimensions:  GetCardDimensions(CardType26x8),
+	}
+}
+
+// NewGeneratorWithType creates a new punchcard generator with a specific card type
+func NewGeneratorWithType(cardType CardType) *Generator {
+	return &Generator{
+		CardsPerRow: 1,
+		Dimensions:  GetCardDimensions(cardType),
 	}
 }
 
 // Generate converts a binary matrix (from processed image) into a sequence of punchcards
-// Each card represents one row of the image, arranged in a CardWidth x CardHeight grid
-// The image should be resized to (CardWidth * CardHeight) pixels wide
+// Each card represents one row of the image, arranged in a Width x Height grid
+// The image should be resized to (Width * Height) pixels wide
 func (g *Generator) Generate(matrix [][]int) ([]*Card, error) {
 	if len(matrix) == 0 {
 		return nil, fmt.Errorf("empty matrix provided")
@@ -46,11 +94,11 @@ func (g *Generator) Generate(matrix [][]int) ([]*Card, error) {
 	imageWidth := len(matrix[0])
 	imageHeight := len(matrix)
 
-	// Expected width is CardWidth * CardHeight (26 * 8 = 208)
-	expectedWidth := CardWidth * CardHeight
+	// Expected width is Width * Height (e.g., 26 * 8 = 208 or 50 * 12 = 600)
+	expectedWidth := g.Dimensions.Width * g.Dimensions.Height
 	if imageWidth != expectedWidth {
 		return nil, fmt.Errorf("image width (%d) does not match expected width (%d = %d x %d)",
-			imageWidth, expectedWidth, CardWidth, CardHeight)
+			imageWidth, expectedWidth, g.Dimensions.Width, g.Dimensions.Height)
 	}
 
 	// Each row of the image becomes one card
@@ -59,18 +107,18 @@ func (g *Generator) Generate(matrix [][]int) ([]*Card, error) {
 
 	// Convert each row into a card
 	for cardNum := 0; cardNum < numCards; cardNum++ {
-		// Get the source row (208 pixels)
+		// Get the source row (e.g., 208 or 600 pixels)
 		sourceRow := matrix[cardNum]
 
-		// Create the card matrix (26 columns x 8 rows)
-		cardMatrix := make([][]int, CardHeight)
+		// Create the card matrix (Width columns x Height rows)
+		cardMatrix := make([][]int, g.Dimensions.Height)
 
-		// Reshape the 208-pixel row into a 26x8 grid
+		// Reshape the pixel row into a Width x Height grid
 		// We fill the grid row by row (left to right, top to bottom)
-		for row := 0; row < CardHeight; row++ {
-			cardMatrix[row] = make([]int, CardWidth)
-			for col := 0; col < CardWidth; col++ {
-				pixelIndex := row*CardWidth + col
+		for row := 0; row < g.Dimensions.Height; row++ {
+			cardMatrix[row] = make([]int, g.Dimensions.Width)
+			for col := 0; col < g.Dimensions.Width; col++ {
+				pixelIndex := row*g.Dimensions.Width + col
 				cardMatrix[row][col] = sourceRow[pixelIndex]
 			}
 		}
@@ -78,8 +126,8 @@ func (g *Generator) Generate(matrix [][]int) ([]*Card, error) {
 		cards[cardNum] = &Card{
 			Number: cardNum + 1, // 1-indexed for user display
 			Matrix: cardMatrix,
-			Width:  CardWidth,
-			Height: CardHeight,
+			Width:  g.Dimensions.Width,
+			Height: g.Dimensions.Height,
 		}
 	}
 

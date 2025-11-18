@@ -12,6 +12,85 @@ func TestNewGenerator(t *testing.T) {
 	if g.CardsPerRow != 1 {
 		t.Errorf("CardsPerRow = %d, want 1", g.CardsPerRow)
 	}
+	// Should default to 26x8
+	if g.Dimensions.Width != 26 || g.Dimensions.Height != 8 {
+		t.Errorf("Dimensions = %dx%d, want 26x8", g.Dimensions.Width, g.Dimensions.Height)
+	}
+}
+
+func TestNewGeneratorWithType(t *testing.T) {
+	tests := []struct {
+		name       string
+		cardType   CardType
+		wantWidth  int
+		wantHeight int
+	}{
+		{"26x8 card type", CardType26x8, 26, 8},
+		{"50x12 card type", CardType50x12, 50, 12},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGeneratorWithType(tt.cardType)
+			if g == nil {
+				t.Error("NewGeneratorWithType() returned nil")
+			}
+			if g.Dimensions.Width != tt.wantWidth {
+				t.Errorf("Width = %d, want %d", g.Dimensions.Width, tt.wantWidth)
+			}
+			if g.Dimensions.Height != tt.wantHeight {
+				t.Errorf("Height = %d, want %d", g.Dimensions.Height, tt.wantHeight)
+			}
+		})
+	}
+}
+
+func TestValidateCardType(t *testing.T) {
+	tests := []struct {
+		name      string
+		cardType  string
+		wantError bool
+	}{
+		{"valid 26x8", "26x8", false},
+		{"valid 50x12", "50x12", false},
+		{"invalid type", "invalid", true},
+		{"empty string", "", true},
+		{"wrong format", "26x12", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateCardType(tt.cardType)
+			if (err != nil) != tt.wantError {
+				t.Errorf("ValidateCardType(%q) error = %v, wantError %v", tt.cardType, err, tt.wantError)
+			}
+		})
+	}
+}
+
+func TestGetCardDimensions(t *testing.T) {
+	tests := []struct {
+		name       string
+		cardType   CardType
+		wantWidth  int
+		wantHeight int
+	}{
+		{"26x8 dimensions", CardType26x8, 26, 8},
+		{"50x12 dimensions", CardType50x12, 50, 12},
+		{"invalid defaults to 26x8", CardType("invalid"), 26, 8},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dims := GetCardDimensions(tt.cardType)
+			if dims.Width != tt.wantWidth {
+				t.Errorf("Width = %d, want %d", dims.Width, tt.wantWidth)
+			}
+			if dims.Height != tt.wantHeight {
+				t.Errorf("Height = %d, want %d", dims.Height, tt.wantHeight)
+			}
+		})
+	}
 }
 
 func TestGenerate(t *testing.T) {
@@ -53,6 +132,53 @@ func TestGenerate(t *testing.T) {
 				}
 				if card.Height != CardHeight {
 					t.Errorf("Card %d height = %d, want %d", i, card.Height, CardHeight)
+				}
+				if card.Number != i+1 {
+					t.Errorf("Card %d number = %d, want %d", i, card.Number, i+1)
+				}
+			}
+		})
+	}
+}
+
+func TestGenerate50x12CardType(t *testing.T) {
+	// Test with 50x12 card type
+	generator := NewGeneratorWithType(CardType50x12)
+	expectedWidth := 50 * 12 // 600 pixels
+
+	tests := []struct {
+		name          string
+		matrixHeight  int
+		matrixWidth   int
+		expectedCards int
+	}{
+		{"single card (one row)", 1, expectedWidth, 1},
+		{"two cards (two rows)", 2, expectedWidth, 2},
+		{"five cards (five rows)", 5, expectedWidth, 5},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create test matrix
+			matrix := createTestMatrix(tt.matrixHeight, tt.matrixWidth)
+
+			cards, err := generator.Generate(matrix)
+
+			if err != nil {
+				t.Fatalf("Generate() error = %v", err)
+			}
+
+			if len(cards) != tt.expectedCards {
+				t.Errorf("Generate() returned %d cards, want %d", len(cards), tt.expectedCards)
+			}
+
+			// Verify card dimensions are 50x12
+			for i, card := range cards {
+				if card.Width != 50 {
+					t.Errorf("Card %d width = %d, want 50", i, card.Width)
+				}
+				if card.Height != 12 {
+					t.Errorf("Card %d height = %d, want 12", i, card.Height)
 				}
 				if card.Number != i+1 {
 					t.Errorf("Card %d number = %d, want %d", i, card.Number, i+1)
