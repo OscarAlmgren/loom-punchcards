@@ -76,6 +76,32 @@ func resize(img *image.Gray, width, height int) *image.Gray {
 	srcWidth := bounds.Dx()
 	srcHeight := bounds.Dy()
 
+	// If height is 0, calculate it based on aspect ratio
+	if height == 0 && width > 0 {
+		aspectRatio := float64(srcHeight) / float64(srcWidth)
+		height = int(float64(width) * aspectRatio)
+		if height == 0 {
+			height = 1 // Ensure at least 1 row
+		}
+	}
+
+	// If width is 0, calculate it based on aspect ratio
+	if width == 0 && height > 0 {
+		aspectRatio := float64(srcWidth) / float64(srcHeight)
+		width = int(float64(height) * aspectRatio)
+		if width == 0 {
+			width = 1 // Ensure at least 1 column
+		}
+	}
+
+	// Safety check: ensure both dimensions are positive
+	if width <= 0 || height <= 0 {
+		// Return a minimal 1x1 image if dimensions are invalid
+		dst := image.NewGray(image.Rect(0, 0, 1, 1))
+		dst.Set(0, 0, img.At(0, 0))
+		return dst
+	}
+
 	dst := image.NewGray(image.Rect(0, 0, width, height))
 
 	for y := 0; y < height; y++ {

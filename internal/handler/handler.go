@@ -115,6 +115,13 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Safety check: ensure matrix is not empty
+	if len(matrix) == 0 || len(matrix[0]) == 0 {
+		log.Printf("Error: processed image resulted in empty matrix")
+		http.Error(w, "Failed to process image: resulted in empty matrix", http.StatusBadRequest)
+		return
+	}
+
 	log.Printf("Processed image to %dx%d matrix", len(matrix[0]), len(matrix))
 
 	// Generate punchcards
@@ -214,6 +221,12 @@ func (h *Handler) PreviewHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Safety check: ensure matrix is not empty
+	if len(matrix) == 0 || len(matrix[0]) == 0 {
+		http.Error(w, "Failed to process image: resulted in empty matrix", http.StatusBadRequest)
+		return
+	}
+
 	// Generate punchcards
 	generator := punchcard.NewGenerator()
 	cards, err := generator.Generate(matrix)
@@ -286,6 +299,12 @@ func (h *Handler) InfoHandler(w http.ResponseWriter, r *http.Request) {
 	matrix, err := processor.Process(bytes.NewReader(fileBytes))
 	if err != nil {
 		http.Error(w, "Failed to process image", http.StatusBadRequest)
+		return
+	}
+
+	// Safety check: ensure matrix is not empty
+	if len(matrix) == 0 || len(matrix[0]) == 0 {
+		http.Error(w, "Failed to process image: resulted in empty matrix", http.StatusBadRequest)
 		return
 	}
 
